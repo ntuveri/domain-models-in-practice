@@ -11,9 +11,8 @@ import {
 
 
 import { Framework, FrameworkFactory } from "./framework"
-import { GetAvailableSeats } from "../src/domain/queries"
-import { GetAvailableSeatsResponse } from "../src/domain/read_models"
-// import { GetAvailableSeatsResponse } from "../src/domain/read_models"
+import { GetAvailableSeats, GetAvailableSeatsResponse } from "../src/domain/queries"
+import { Timer } from "../src/infrastructure/timer"
 
 describe("The customer wants to see the available seats of the screening", () => {
 
@@ -24,7 +23,7 @@ describe("The customer wants to see the available seats of the screening", () =>
   })
 
   it("If seats are available, the seats should be listed.", async () => {
-    const screenStartTime = new Date();
+    const screenStartTime = Timer.currentTime;
     const screenId = new ScreenId('screen1')
     const screenId2 = new ScreenId('screen2')
     const { given, whenQuery, thenExpectResponse } = framework

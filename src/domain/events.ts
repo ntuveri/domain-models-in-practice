@@ -7,11 +7,13 @@ export class SeatReserved implements DomainEvent {
   readonly customerId: CustomerId
   readonly screenId: ScreenId
   readonly seat: Seat
+  readonly reservationTime: Date
 
-  constructor(customerId: CustomerId, screenId: ScreenId, seat: Seat) {
+  constructor(customerId: CustomerId, screenId: ScreenId, seat: Seat, reservationTime: Date) {
     this.customerId = customerId
     this.screenId = screenId
     this.seat = seat
+    this.reservationTime = reservationTime
   }
 }
 
@@ -38,3 +40,24 @@ export class ScreenScheduled implements DomainEvent {
     this.seats = seats
   }
 }
+
+export class SeatReservationCanceled implements DomainEvent {
+  readonly customerId: CustomerId | undefined
+  readonly screenId: ScreenId
+  readonly seat: Seat
+
+  constructor(customerId: CustomerId | undefined, screenId: ScreenId, seat: Seat) {
+    this.customerId = customerId
+    this.screenId = screenId
+    this.seat = seat
+  }
+}
+
+export class TimePassed implements DomainEvent {
+  readonly time: Date
+
+  constructor(time: Date) {
+    this.time = time
+  }
+}
+

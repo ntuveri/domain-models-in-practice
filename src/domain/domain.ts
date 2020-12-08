@@ -1,4 +1,5 @@
-import { DomainEvent, ScreenScheduled, SeatReserved, SeatReservationRefused } from "./events"
+import { DomainEvent, ScreenScheduled, SeatReserved, SeatReservationRefused, SeatReservationCanceled } from "./events"
+import { Timer } from "../infrastructure/timer"
 
 export enum Row {
   A,
@@ -16,10 +17,7 @@ export enum Col {
 
 // Value Object
 export class Seat {
-  private readonly row: Row
-  private readonly col: Col
-
-  constructor(row: Row, col: Col) {
+  constructor(readonly row: Row, readonly col: Col) {
     this.row = row
     this.col = col
   }
@@ -29,7 +27,13 @@ export class Seat {
   }
 
   toString() {
-    return `${this.row}-${this.col}`
+    return `${this.row}${this.col}`
+  }
+}
+
+export class ReservedSeat extends Seat {
+  constructor(row: Row, col: Col, readonly reservationTime: Date, readonly customerId: CustomerId, readonly screenId: ScreenId) {
+    super(row, col)
   }
 }
 
@@ -96,28 +100,35 @@ export class ReservationState {
     if (event instanceof SeatReserved) {
       this.reservedSeats.push(event.seat)
     }
+
+    if (event instanceof SeatReservationCanceled) {
+      this.reservedSeats = this.reservedSeats.filter(rs => !rs.equals(event.seat))
+    }
   }
 }
 
 // Aggregate
 export class Reservation {
   reservationState: ReservationState
-  publish: (event: Object) => void
+  publish: (event: DomainEvent) => void
 
-  constructor(reservationState: ReservationState, publish: (event: Object) => void) {
+  constructor(reservationState: ReservationState, publish: (event: DomainEvent) => void) {
     this.reservationState = reservationState
     this.publish = publish
   }
 
   isOnTime() {
     let screen = this.reservationState.screen;
-    return screen && screen.startTime > new Date((new Date()).getTime() + (15 * 60 * 1000))
+    return screen && screen.startTime > new Date(Timer.currentTime.getTime() + (15 * 60 * 1000))
   }
 
   isAvailable(seat: Seat) {
     return !this.reservationState.reservedSeats.find((s) => s.equals(seat)) && 
       this.reservationState.screen?.seats.find((s) => s.equals(seat)) 
-      
+  }
+
+  isReserved(seat: Seat) {
+    return this.reservationState.reservedSeats.find((s) => s.equals(seat))
   }
 
   canBook(seat: Seat) {
@@ -125,7 +136,11 @@ export class Reservation {
   }
 
   reserveSeat(customerId: CustomerId, screenId: ScreenId, seat: Seat) {
-    if (this.canBook(seat)) this.publish(new SeatReserved(customerId, screenId, seat))
+    if (this.canBook(seat)) this.publish(new SeatReserved(customerId, screenId, seat, Timer.currentTime))
     else this.publish(new SeatReservationRefused(customerId, screenId, seat))
+  }
+
+  cancelSeatReservation(customerId: CustomerId | undefined, screenId: ScreenId, seat: Seat) {
+    if (this.isReserved(seat)) this.publish(new SeatReservationCanceled(customerId, screenId, seat))
   }
 }

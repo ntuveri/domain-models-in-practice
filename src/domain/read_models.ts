@@ -1,5 +1,5 @@
-import { DomainEvent, ScreenScheduled, SeatReserved } from "./events"
-import { ScreenId, Seat } from "./domain"
+import { DomainEvent, ScreenScheduled, SeatReserved, SeatReservationCanceled } from "./events"
+import { ScreenId, Seat, ReservedSeat } from "./domain"
 
 // Read Model
 export interface ReadModel {
@@ -8,7 +8,7 @@ export interface ReadModel {
 
 export class AvailableSeatsByScreen implements ReadModel {
 
-  private availableSeats: Map<ScreenId, Seat[]> = new Map()
+  public readonly availableSeats: Map<String, Seat[]> = new Map<String, Seat[]>()
 
   constructor(events: DomainEvent[]) {
     for (const event of events) {
@@ -22,44 +22,55 @@ export class AvailableSeatsByScreen implements ReadModel {
 
   private apply(event: DomainEvent) {
     if (event instanceof ScreenScheduled) {
-      this.availableSeats.set(event.screenId, event.seats)
+      this.availableSeats.set(event.screenId.value(), event.seats)
     }
 
     if (event instanceof SeatReserved) {
-      const availableSeatsByScreen = this.getAvailableSeats(event.screenId)
+      let availableSeatsByScreen = this.availableSeats.get(event.screenId.value())!
+      availableSeatsByScreen = availableSeatsByScreen.filter(s => !s.equals(event.seat))
+      this.availableSeats.set(event.screenId.value(), availableSeatsByScreen)
+    }
 
-      this.availableSeats.set(event.screenId,
-        availableSeatsByScreen.filter(s => !s.equals(event.seat)))
+    if (event instanceof SeatReservationCanceled) {
+      let availableSeatsByScreen = this.availableSeats.get(event.screenId.value())!
+      availableSeatsByScreen.push(event.seat)
+      this.availableSeats.set(event.screenId.value(), availableSeatsByScreen)
+    }
+  }
+}
+
+
+export class ReservedSeatsByScreen implements ReadModel {
+
+  public readonly reservedSeats: Map<String, ReservedSeat[]> = new Map<String, ReservedSeat[]>()
+
+  constructor(events: DomainEvent[]) {
+    for (const event of events) {
+      this.apply(event)
     }
   }
 
-  public getAvailableSeats(screenId: ScreenId): Seat[] {
-    
-    let seats: Seat[] = []
+  public project(event: DomainEvent) {
+    this.apply(event)
+  }
 
-    this.availableSeats.forEach((v, k) => {
-      if(k.equals(screenId)) {
-        seats = v
-      }
-    })
+  private apply(event: DomainEvent) {
+    if (event instanceof ScreenScheduled) {
+      this.reservedSeats.set(event.screenId.value(), [])
+    }
 
-    return seats
+    if (event instanceof SeatReserved) {
+      const reservedSeatsByScreen = this.reservedSeats.get(event.screenId.value())!
+      const reservedSeat = new ReservedSeat(event.seat.row, event.seat.col, event.reservationTime, event.customerId, event.screenId) 
+      reservedSeatsByScreen.push(reservedSeat)
+      this.reservedSeats.set(event.screenId.value(), reservedSeatsByScreen)
+    }
+
+    if (event instanceof SeatReservationCanceled) {
+      let reservedSeatsByScreen = this.reservedSeats.get(event.screenId.value())!
+      reservedSeatsByScreen = reservedSeatsByScreen.filter(s => !s.equals(event.seat))
+      this.reservedSeats.set(event.screenId.value(), reservedSeatsByScreen)
+    }
   }
 }
-
-export interface QueryResponse {
-}
-
-// DTO
-export class GetAvailableSeatsResponse implements QueryResponse {
-
-  public availableSeats: Seat[]
-  public screenId: ScreenId
-
-  constructor(screenId: ScreenId, availableSeats: Seat[]) {
-    this.screenId = screenId
-    this.availableSeats = availableSeats
-  }
-}
-
 

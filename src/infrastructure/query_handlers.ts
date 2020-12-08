@@ -1,5 +1,5 @@
-import { Query, GetAvailableSeats } from "../domain/queries"
-import { AvailableSeatsByScreen, GetAvailableSeatsResponse, QueryResponse } from "../domain/read_models"
+import { Query, GetAvailableSeats, QueryResponse, GetAvailableSeatsResponse } from "../domain/queries"
+import { AvailableSeatsByScreen } from "../domain/read_models"
 import { ScreenId } from "../domain/domain"
 
 // Query Handler
@@ -18,9 +18,13 @@ export class GetAvailableSeatsHandler implements QueryHandler {
   }
 
   handleQuery(query: GetAvailableSeats): void {
+    if (!(query instanceof GetAvailableSeats)) {
+      return
+    }
+
     const screenId = new ScreenId(query.screenId)
     const queryResponse = new GetAvailableSeatsResponse(screenId,
-      this.readModel.getAvailableSeats(screenId))
+      this.readModel.availableSeats.get(screenId.value())!)
 
     this.respond(queryResponse)
   }
